@@ -4,3 +4,4 @@ httpx
 google-generativeai
 groq
 python-dotenv
+beautifulsoup4
