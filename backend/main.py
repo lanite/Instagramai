@@ -30,7 +30,7 @@ if not SCRAPER_API_KEY:
 genai.configure(api_key=GEMINI_API_KEY)
 groq_client = Groq(api_key=GROQ_API_KEY)
 
-app = FastAPI(title="InstaLead AI", version="5.0.0")
+app = FastAPI(title="InstaLead AI", version="6.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -92,7 +92,10 @@ def extract_instagram_username(url: str) -> str:
 
 def detect_whatsapp(text: str) -> bool:
     text_lower = text.lower()
-    patterns = ["whatsapp", "whats app", "whatsap", "wa.me", "chat us", "chat me", "+234", "08", "07", "09"]
+    patterns = [
+        "whatsapp", "whats app", "whatsap", "wa.me",
+        "chat us", "chat me", "+234", "08", "07", "09",
+    ]
     return any(p in text_lower for p in patterns)
 
 
@@ -145,33 +148,26 @@ def parse_profile_html(html: str, snippet_bio: str) -> dict:
         "email": "",
         "followers": "",
     }
-
     try:
         soup = BeautifulSoup(html, "html.parser")
         full_text = soup.get_text(separator=" ", strip=True)
 
-        # Extract bio from meta description
         meta_desc = soup.find("meta", {"name": "description"})
         if meta_desc and meta_desc.get("content"):
-            content = meta_desc["content"]
-            result["bio"] = content[:200]
+            result["bio"] = meta_desc["content"][:200]
 
-        # Extract follower count
         followers_match = re.search(r"([\d,\.]+[KMk]?)\s*Followers", full_text, re.IGNORECASE)
         if followers_match:
             result["followers"] = followers_match.group(1)
 
-        # Extract WhatsApp number
         whatsapp_number = extract_whatsapp_number(full_text)
         if whatsapp_number:
             result["whatsapp_number"] = whatsapp_number
 
-        # Extract email
         email = extract_email(full_text)
         if email:
             result["email"] = email
 
-        # Try JSON-LD structured data
         scripts = soup.find_all("script", {"type": "application/ld+json"})
         for script in scripts:
             try:
@@ -185,10 +181,8 @@ def parse_profile_html(html: str, snippet_bio: str) -> dict:
                                 result["followers"] = str(stat.get("userInteractionCount", ""))
             except Exception:
                 continue
-
     except Exception:
         pass
-
     return result
 
 
@@ -217,17 +211,11 @@ async def fetch_profile_direct(username: str, client: httpx.AsyncClient) -> str:
 
 async def fetch_instagram_profile(username: str, client: httpx.AsyncClient) -> dict:
     empty = {"bio": "", "whatsapp_number": "", "email": "", "followers": ""}
-
-    # Try ScraperAPI first
     html = await fetch_profile_with_scraperapi(username, client)
-
-    # Fall back to direct fetch if ScraperAPI fails
     if not html:
         html = await fetch_profile_direct(username, client)
-
     if not html:
         return empty
-
     return parse_profile_html(html, "")
 
 
@@ -237,7 +225,6 @@ def build_pitch_prompt(business_name: str, username: str, bio: str, niche: str, 
         extra_context += f"\n- Followers: {followers}"
     if whatsapp_number:
         extra_context += f"\n- WhatsApp: {whatsapp_number}"
-
     return f"""Write a short Instagram DM pitch for a Nigerian web designer reaching out to a small business owner.
 
 Business details:
@@ -306,7 +293,7 @@ async def run_serper_query(query: str, client: httpx.AsyncClient) -> list[dict]:
     try:
         response = await client.post(
             "https://google.serper.dev/search",
-            json={"q": query, "num": 10},
+            json={"q": query, "num": 10, "gl": "ng"},
             headers={"X-API-KEY": SERPER_API_KEY, "Content-Type": "application/json"},
             timeout=15.0,
         )
@@ -318,7 +305,7 @@ async def run_serper_query(query: str, client: httpx.AsyncClient) -> list[dict]:
 
 @app.get("/")
 async def health_check():
-    return {"status": "InstaLead AI is running", "version": "5.0.0"}
+    return {"status": "InstaLead AI is running", "version": "6.0.0"}
 
 
 @app.post("/api/hunt", response_model=list[LeadResult])
@@ -331,19 +318,19 @@ async def hunt_leads(req: HuntRequest):
     niche = req.niche.strip()
     city = req.city.strip()
 
-    # 3 parallel Serper queries with different search variations
     queries = [
         f'site:instagram.com "DM to order" "{city}" {niche}',
         f'site:instagram.com "WhatsApp to order" "{city}" {niche}',
         f'site:instagram.com "send a DM" "{city}" {niche}',
+        f'site:instagram.com "DM us" "{city}" {niche}',
+        f'site:instagram.com "order via WhatsApp" "{city}" {niche}',
+        f'site:instagram.com "call or WhatsApp" "{city}" {niche}',
     ]
 
     async with httpx.AsyncClient(timeout=20.0) as client:
-        # Run all 3 Serper queries in parallel
         serper_tasks = [run_serper_query(q, client) for q in queries]
         serper_results = await asyncio.gather(*serper_tasks)
 
-        # Merge and deduplicate by username
         seen_usernames = set()
         unique_results = []
         for result_batch in serper_results:
@@ -360,8 +347,8 @@ async def hunt_leads(req: HuntRequest):
         if not unique_results:
             return []
 
-        # Fetch Instagram profiles in parallel (max 30)
-        unique_results = unique_results[:30]
+        unique_results = unique_results[:50]
+
         profile_tasks = []
         for result in unique_results:
             username = extract_instagram_username(result.get("link", ""))
@@ -369,7 +356,6 @@ async def hunt_leads(req: HuntRequest):
 
         profile_data = await asyncio.gather(*profile_tasks)
 
-        # Build final leads
         leads = []
         for result, profile in zip(unique_results, profile_data):
             url = result.get("link", "")
@@ -379,7 +365,6 @@ async def hunt_leads(req: HuntRequest):
             username = extract_instagram_username(url)
             business_name = derive_business_name(username, title)
 
-            # Use profile bio if available, else fall back to snippet
             bio = profile.get("bio") or clean_bio(snippet)
             bio = bio[:200]
 
