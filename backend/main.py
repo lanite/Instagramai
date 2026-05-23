@@ -2,6 +2,7 @@ import os
 import re
 import json
 import httpx
+import google.generativeai as genai
 from groq import Groq
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,16 +12,20 @@ from dotenv import load_dotenv
 load_dotenv()
 
 SERPER_API_KEY = os.getenv("SERPER_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 if not SERPER_API_KEY:
     raise RuntimeError("SERPER_API_KEY is not set in environment variables.")
+if not GEMINI_API_KEY:
+    raise RuntimeError("GEMINI_API_KEY is not set in environment variables.")
 if not GROQ_API_KEY:
     raise RuntimeError("GROQ_API_KEY is not set in environment variables.")
 
+genai.configure(api_key=GEMINI_API_KEY)
 groq_client = Groq(api_key=GROQ_API_KEY)
 
-app = FastAPI(title="InstaLead AI", version="2.0.0")
+app = FastAPI(title="InstaLead AI", version="3.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -87,8 +92,8 @@ def clean_bio(snippet: str) -> str:
     return snippet[:120]
 
 
-def generate_pitch_with_groq(business_name: str, username: str, bio: str, niche: str, city: str) -> str:
-    prompt = f"""Write a short Instagram DM pitch for a Nigerian web designer reaching out to a small business owner.
+def build_pitch_prompt(business_name: str, username: str, bio: str, niche: str, city: str) -> str:
+    return f"""Write a short Instagram DM pitch for a Nigerian web designer reaching out to a small business owner.
 
 Business details:
 - Business name: {business_name}
@@ -106,21 +111,61 @@ Requirements:
 - End with a soft call-to-action offering a free mockup
 - Return ONLY the pitch text, nothing else"""
 
-    try:
-        response = groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[{"role": "user", "content": prompt}],
+
+def generate_pitch_with_gemini(business_name: str, username: str, bio: str, niche: str, city: str) -> str:
+    prompt = build_pitch_prompt(business_name, username, bio, niche, city)
+    gemini_model = genai.GenerativeModel(
+        model_name="gemini-2.0-flash",
+        generation_config=genai.GenerationConfig(
             temperature=0.8,
-            max_tokens=200,
-        )
-        return response.choices[0].message.content.strip()
-    except Exception:
-        return (
-            f"Hi {business_name}! I love what you're doing on Instagram. "
-            f"I noticed you're managing orders manually via DMs/WhatsApp — "
-            f"I can build you a clean website that automates your orders and saves you hours every week. "
-            f"No more copy-pasting customer details. Want me to show you a free mockup of what it could look like?"
-        )
+            max_output_tokens=200,
+        ),
+    )
+    response = gemini_model.generate_content(prompt)
+    return response.text.strip()
+
+
+def generate_pitch_with_groq(business_name: str, username: str, bio: str, niche: str, city: str) -> str:
+    prompt = build_pitch_prompt(business_name, username, bio, niche, city)
+    response = groq_client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.8,
+        max_tokens=200,
+    )
+    return response.choices[0].message.content.strip()
+
+
+def generate_pitch(business_name: str, username: str, bio: str, niche: str, city: str) -> str:
+    # Try Gemini first
+    try:
+        return generate_pitch_with_gemini(business_name, username, bio, niche, city)
+    except Exception as gemini_error:
+        gemini_msg = str(gemini_error).lower()
+        # Fall back to Groq on quota errors, model errors, or any API failure
+        if any(code in gemini_msg for code in ["429", "404", "quota", "rate", "limit", "not found"]):
+            try:
+                return generate_pitch_with_groq(business_name, username, bio, niche, city)
+            except Exception:
+                # Last resort static fallback
+                return (
+                    f"Hi {business_name}! Love what you're doing on Instagram. "
+                    f"I noticed you're managing orders manually via DMs/WhatsApp — "
+                    f"I can build you a clean website that automates your orders and saves you hours every week. "
+                    f"No more copy-pasting customer details. "
+                    f"Want me to show you a free mockup of what it could look like?"
+                )
+        # If Gemini failed for another reason, still try Groq
+        try:
+            return generate_pitch_with_groq(business_name, username, bio, niche, city)
+        except Exception:
+            return (
+                f"Hi {business_name}! Love what you're doing on Instagram. "
+                f"I noticed you're managing orders manually via DMs/WhatsApp — "
+                f"I can build you a clean website that automates your orders and saves you hours every week. "
+                f"No more copy-pasting customer details. "
+                f"Want me to show you a free mockup of what it could look like?"
+            )
 
 
 def parse_organic_results(results: list[dict], niche: str, city: str) -> list[LeadResult]:
@@ -140,7 +185,7 @@ def parse_organic_results(results: list[dict], niche: str, city: str) -> list[Le
         business_name = derive_business_name(username, title)
         bio = clean_bio(snippet)
         whatsapp_found = detect_whatsapp(snippet + " " + title)
-        pitch = generate_pitch_with_groq(business_name, username, bio, niche, city)
+        pitch = generate_pitch(business_name, username, bio, niche, city)
 
         leads.append(LeadResult(
             username=username,
@@ -155,7 +200,7 @@ def parse_organic_results(results: list[dict], niche: str, city: str) -> list[Le
 
 @app.get("/")
 async def health_check():
-    return {"status": "InstaLead AI is running", "version": "2.0.0"}
+    return {"status": "InstaLead AI is running", "version": "3.0.0"}
 
 
 @app.post("/api/hunt", response_model=list[LeadResult])
