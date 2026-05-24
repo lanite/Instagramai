@@ -50,7 +50,7 @@ interface SearchHistory {
 
 function exportToCSV(leads: Lead[], niche: string, city: string, country: string) {
   const headers = ["Username", "Instagram URL", "Business Name", "Bio", "WhatsApp", "WhatsApp Number", "Email", "Followers", "Score", "Pitch"];
-  const rows = leads.map(lead => [
+  const rows = leads.map((lead) => [
     `@${lead.username}`,
     `https://instagram.com/${lead.username}`,
     lead.business_name,
@@ -62,7 +62,7 @@ function exportToCSV(leads: Lead[], niche: string, city: string, country: string
     lead.score || 0,
     `"${lead.pitch.replace(/"/g, "'")}"`,
   ]);
-  const csv = [headers, ...rows].map(r => r.join(",")).join("\n");
+  const csv = [headers, ...rows].map((r) => r.join(",")).join("\n");
   const blob = new Blob([csv], { type: "text/csv" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -73,9 +73,12 @@ function exportToCSV(leads: Lead[], niche: string, city: string, country: string
 }
 
 function ScoreBadge({ score }: { score: number }) {
-  const color = score >= 70 ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
-    : score >= 40 ? "text-[#D4AF37] bg-[#D4AF37]/10 border-[#D4AF37]/20"
-    : "text-white/40 bg-white/5 border-white/10";
+  const color =
+    score >= 70
+      ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+      : score >= 40
+      ? "text-[#D4AF37] bg-[#D4AF37]/10 border-[#D4AF37]/20"
+      : "text-white/40 bg-white/5 border-white/10";
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono border ${color}`}>
       {score}pts
@@ -139,8 +142,12 @@ function LeadCard({ lead }: { lead: Lead }) {
       <div className="p-4 flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-1">
-            <a href={instagramUrl} target="_blank" rel="noopener noreferrer"
-              className="text-sm font-mono text-white/80 hover:text-[#D4AF37] transition-colors truncate">
+            <a
+              href={instagramUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm font-mono text-white/80 hover:text-[#D4AF37] transition-colors truncate"
+            >
               @{lead.username}
             </a>
             {lead.whatsapp_found ? (
@@ -188,19 +195,32 @@ function LeadCard({ lead }: { lead: Lead }) {
       <div className="px-4 pb-4 flex items-center gap-2 flex-wrap">
         <CopyButton pitch={lead.pitch} />
         {whatsappUrl && (
-          <a href={whatsappUrl} target="_blank" rel="noopener noreferrer"
-            className="px-3 py-1.5 text-xs font-mono font-medium rounded border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 transition-all duration-200 flex items-center gap-1.5">
+          <a
+            href={whatsappUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-3 py-1.5 text-xs font-mono font-medium rounded border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 transition-all duration-200 flex items-center gap-1.5"
+          >
             <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
               <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
             </svg>
             WhatsApp
           </a>
         )}
-        <button onClick={() => setPitchOpen(!pitchOpen)}
-          className="px-3 py-1.5 text-xs font-mono text-white/40 hover:text-white/70 border border-white/10 hover:border-white/20 rounded transition-all duration-200 flex items-center gap-1.5">
+        <button
+          onClick={() => setPitchOpen(!pitchOpen)}
+          className="px-3 py-1.5 text-xs font-mono text-white/40 hover:text-white/70 border border-white/10 hover:border-white/20 rounded transition-all duration-200 flex items-center gap-1.5"
+        >
           {pitchOpen ? "Hide Pitch" : "View Pitch"}
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-            className={`transition-transform duration-200 ${pitchOpen ? "rotate-180" : ""}`}>
+          <svg
+            width="10"
+            height="10"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            className={`transition-transform duration-200 ${pitchOpen ? "rotate-180" : ""}`}
+          >
             <polyline points="6 9 12 15 18 9" />
           </svg>
         </button>
@@ -245,7 +265,7 @@ export default function Home() {
   const [isPremium, setIsPremium] = useState(false);
   const [niche, setNiche] = useState("");
   const [country, setCountry] = useState("Nigeria");
-  const [state, setState] = useState("");
+  const [stateRegion, setStateRegion] = useState("");
   const [city, setCity] = useState("");
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(false);
@@ -266,7 +286,9 @@ export default function Home() {
       setAuthLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       if (session?.user) {
         loadUsage(session.user.id);
@@ -304,7 +326,7 @@ export default function Home() {
     await supabase.from("searches").insert({
       user_id: user.id,
       niche,
-      city: city || state,
+      city: city || stateRegion,
       country,
       results: leads,
       lead_count: leads.length,
@@ -354,10 +376,9 @@ export default function Home() {
   const handleHunt = async () => {
     if (!niche.trim()) return;
     if (!user) return;
-
     if (!isPremium && searchCount >= FREE_SEARCH_LIMIT) return;
 
-    const location = city.trim() || state || country;
+    const location = city.trim() || stateRegion || country;
     setLoading(true);
     setError(null);
     setLeads([]);
@@ -372,7 +393,7 @@ export default function Home() {
           niche: niche.trim(),
           city: location,
           country,
-          state: state || "",
+          state: stateRegion || "",
         }),
       });
       if (!response.ok) {
@@ -431,7 +452,7 @@ export default function Home() {
             <h1 className="text-white mb-2" style={{ fontFamily: "var(--font-cormorant), serif", fontSize: "32px", fontWeight: 300, letterSpacing: "0.02em" }}>
               InstaLead AI
             </h1>
-            <p className="text-white/30 text-xs font-mono tracking-widest uppercase">Lead Hunter v6.0</p>
+            <p className="text-white/30 text-xs font-mono tracking-widest uppercase">Lead Hunter v7.0</p>
             <p className="text-white/40 text-sm font-mono mt-4 leading-relaxed max-w-xs mx-auto">
               Find Instagram businesses worldwide that need a website. Sign in to start hunting leads.
             </p>
@@ -443,7 +464,7 @@ export default function Home() {
                 { icon: "🔍", label: "30+ leads", desc: "per search" },
                 { icon: "🤖", label: "AI pitches", desc: "auto-generated" },
                 { icon: "🌍", label: "Worldwide", desc: "any country" },
-              ].map(item => (
+              ].map((item) => (
                 <div key={item.label} className="text-center">
                   <div className="text-xl mb-1">{item.icon}</div>
                   <p className="text-[11px] font-mono text-white/60">{item.label}</p>
@@ -497,11 +518,14 @@ export default function Home() {
           <button onClick={() => setSidebarOpen(!sidebarOpen)} className="text-white/60 hover:text-white transition-colors p-2">
             {sidebarOpen ? (
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
               </svg>
             ) : (
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="18" x2="21" y2="18" />
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="18" x2="21" y2="18" />
               </svg>
             )}
           </button>
@@ -510,28 +534,28 @@ export default function Home() {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
-        <aside className={`
-          fixed lg:relative inset-y-0 left-0 z-50
-          w-[300px] flex-shrink-0 border-r border-white/[0.06] bg-[#0E0E10] flex flex-col
-          transition-transform duration-300 ease-in-out
-          ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
-          top-14 lg:top-0
-        `}>
+        <aside
+          className={`
+            fixed lg:relative inset-y-0 left-0 z-50
+            w-[300px] flex-shrink-0 border-r border-white/[0.06] bg-[#0E0E10] flex flex-col
+            transition-transform duration-300 ease-in-out
+            ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
+            top-14 lg:top-0
+          `}
+        >
           {/* Logo desktop */}
           <div className="hidden lg:block px-7 pt-8 pb-6 border-b border-white/[0.06]">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded bg-[#D4AF37]/15 border border-[#D4AF37]/30 flex items-center justify-center flex-shrink-0">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#D4AF37" strokeWidth="2">
-                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-                  </svg>
-                </div>
-                <div>
-                  <p className="text-white font-medium leading-none" style={{ fontFamily: "var(--font-cormorant), serif", fontSize: "18px" }}>
-                    InstaLead AI
-                  </p>
-                  <p className="text-white/30 text-[10px] font-mono mt-0.5">LEAD HUNTER v6.0</p>
-                </div>
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded bg-[#D4AF37]/15 border border-[#D4AF37]/30 flex items-center justify-center flex-shrink-0">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#D4AF37" strokeWidth="2">
+                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-white font-medium leading-none" style={{ fontFamily: "var(--font-cormorant), serif", fontSize: "18px" }}>
+                  InstaLead AI
+                </p>
+                <p className="text-white/30 text-[10px] font-mono mt-0.5">LEAD HUNTER v7.0</p>
               </div>
             </div>
           </div>
@@ -575,10 +599,13 @@ export default function Home() {
               />
               <div className="flex flex-wrap gap-1.5 mt-2">
                 {NICHE_SUGGESTIONS.slice(0, 6).map((s) => (
-                  <button key={s} onClick={() => setNiche(s)}
+                  <button
+                    key={s}
+                    onClick={() => setNiche(s)}
                     className={`px-2 py-0.5 text-[10px] font-mono rounded border transition-all duration-150 ${
                       niche === s ? "border-[#D4AF37]/50 text-[#D4AF37]" : "border-white/10 text-white/35 hover:border-white/25"
-                    }`}>
+                    }`}
+                  >
                     {s}
                   </button>
                 ))}
@@ -592,11 +619,17 @@ export default function Home() {
               </label>
               <select
                 value={country}
-                onChange={(e) => { setCountry(e.target.value); setState(""); setCity(""); }}
+                onChange={(e) => {
+                  setCountry(e.target.value);
+                  setStateRegion("");
+                  setCity("");
+                }}
                 className="w-full bg-[#121214] border border-white/10 rounded px-3.5 py-2.5 text-sm text-white/80 font-mono focus:outline-none focus:border-[#D4AF37]/50 transition-all duration-200 appearance-none"
               >
                 {Object.keys(COUNTRIES).map((c) => (
-                  <option key={c} value={c} className="bg-[#121214]">{c}</option>
+                  <option key={c} value={c} className="bg-[#121214]">
+                    {c}
+                  </option>
                 ))}
               </select>
             </div>
@@ -607,13 +640,18 @@ export default function Home() {
                 State / Region
               </label>
               <select
-                value={state}
-                onChange={(e) => { setState(e.target.value); setCity(""); }}
+                value={stateRegion}
+                onChange={(e) => {
+                  setStateRegion(e.target.value);
+                  setCity("");
+                }}
                 className="w-full bg-[#121214] border border-white/10 rounded px-3.5 py-2.5 text-sm text-white/80 font-mono focus:outline-none focus:border-[#D4AF37]/50 transition-all duration-200 appearance-none"
               >
                 <option value="">All states...</option>
                 {(COUNTRIES[country] || []).map((s) => (
-                  <option key={s} value={s} className="bg-[#121214]">{s}</option>
+                  <option key={s} value={s} className="bg-[#121214]">
+                    {s}
+                  </option>
                 ))}
               </select>
             </div>
@@ -633,16 +671,16 @@ export default function Home() {
               />
             </div>
 
-            {/* Hunt button */}
+            {/* Buttons */}
             <div className="pt-1 space-y-2">
               {isLimitReached ? (
                 <div className="bg-[#D4AF37]/5 border border-[#D4AF37]/20 rounded-xl p-4 text-center">
                   <p className="text-[#D4AF37] text-xs font-mono mb-1">Free limit reached</p>
                   <p className="text-white/40 text-[10px] font-mono leading-relaxed mb-3">
-                    You've used all {FREE_SEARCH_LIMIT} free searches. Send a WhatsApp message to unlock unlimited access.
+                    You&apos;ve used all {FREE_SEARCH_LIMIT} free searches. Send a WhatsApp message to unlock unlimited access.
                   </p>
                   <a
-                    href="https://wa.me/2348000000000?text=Hi, I want to upgrade my InstaLead AI account. My email is: " + (user.email || "")
+                    href={`https://wa.me/2348000000000?text=Hi, I want to upgrade my InstaLead AI account. My email is: ${user.email || ""}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="w-full py-2.5 px-4 bg-[#D4AF37] text-[#0B0B0C] rounded font-mono text-xs font-medium flex items-center justify-center gap-2"
@@ -667,13 +705,15 @@ export default function Home() {
                       </svg>
                       Hunting...
                     </span>
-                  ) : "⚡ Start Lead Hunt"}
+                  ) : (
+                    "⚡ Start Lead Hunt"
+                  )}
                 </button>
               )}
 
               {leads.length > 0 && !loading && (
                 <button
-                  onClick={() => exportToCSV(leads, niche, city || state, country)}
+                  onClick={() => exportToCSV(leads, niche, city || stateRegion, country)}
                   className="w-full py-2.5 px-4 rounded text-xs font-mono font-medium border border-[#D4AF37]/30 text-[#D4AF37]/70 hover:border-[#D4AF37]/60 hover:text-[#D4AF37] transition-all duration-200 flex items-center justify-center gap-2"
                 >
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -687,7 +727,9 @@ export default function Home() {
 
               {loading && (
                 <p className="text-center text-[10px] font-mono text-white/25 leading-relaxed">
-                  Running searches + scraping profiles<br />15–25 seconds...
+                  Running searches + scraping profiles
+                  <br />
+                  15–25 seconds...
                 </p>
               )}
             </div>
@@ -700,8 +742,15 @@ export default function Home() {
                   className="w-full flex items-center justify-between text-[10px] font-mono text-white/30 uppercase tracking-widest hover:text-white/50 transition-colors"
                 >
                   Recent Searches
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-                    className={`transition-transform ${historyOpen ? "rotate-180" : ""}`}>
+                  <svg
+                    width="10"
+                    height="10"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    className={`transition-transform ${historyOpen ? "rotate-180" : ""}`}
+                  >
                     <polyline points="6 9 12 15 18 9" />
                   </svg>
                 </button>
@@ -714,7 +763,9 @@ export default function Home() {
                         className="w-full text-left px-3 py-2 bg-[#121214] border border-white/[0.06] rounded-lg hover:border-white/15 transition-all duration-150"
                       >
                         <p className="text-xs font-mono text-white/60 truncate">{item.niche}</p>
-                        <p className="text-[10px] font-mono text-white/25">{item.city} · {item.country} · {item.lead_count} leads</p>
+                        <p className="text-[10px] font-mono text-white/25">
+                          {item.city} · {item.country} · {item.lead_count} leads
+                        </p>
                       </button>
                     ))}
                   </div>
@@ -729,15 +780,21 @@ export default function Home() {
               <div className="grid grid-cols-3 gap-2">
                 <div className="bg-[#121214] rounded px-2 py-2">
                   <p className="text-[9px] font-mono text-white/30 mb-0.5">Leads</p>
-                  <p className="text-base font-medium text-[#D4AF37]" style={{ fontFamily: "var(--font-cormorant), serif" }}>{leads.length}</p>
+                  <p className="text-base font-medium text-[#D4AF37]" style={{ fontFamily: "var(--font-cormorant), serif" }}>
+                    {leads.length}
+                  </p>
                 </div>
                 <div className="bg-[#121214] rounded px-2 py-2">
                   <p className="text-[9px] font-mono text-white/30 mb-0.5">WhatsApp</p>
-                  <p className="text-base font-medium text-emerald-400" style={{ fontFamily: "var(--font-cormorant), serif" }}>{leads.filter(l => l.whatsapp_found).length}</p>
+                  <p className="text-base font-medium text-emerald-400" style={{ fontFamily: "var(--font-cormorant), serif" }}>
+                    {leads.filter((l) => l.whatsapp_found).length}
+                  </p>
                 </div>
                 <div className="bg-[#121214] rounded px-2 py-2">
                   <p className="text-[9px] font-mono text-white/30 mb-0.5">Emails</p>
-                  <p className="text-base font-medium text-blue-400" style={{ fontFamily: "var(--font-cormorant), serif" }}>{leads.filter(l => l.email).length}</p>
+                  <p className="text-base font-medium text-blue-400" style={{ fontFamily: "var(--font-cormorant), serif" }}>
+                    {leads.filter((l) => l.email).length}
+                  </p>
                 </div>
               </div>
             </div>
@@ -745,7 +802,10 @@ export default function Home() {
         </aside>
 
         {sidebarOpen && (
-          <div className="fixed inset-0 bg-black/60 z-40 lg:hidden top-14" onClick={() => setSidebarOpen(false)} />
+          <div
+            className="fixed inset-0 bg-black/60 z-40 lg:hidden top-14"
+            onClick={() => setSidebarOpen(false)}
+          />
         )}
 
         {/* Main content */}
@@ -755,11 +815,15 @@ export default function Home() {
               <div className="w-1.5 h-1.5 rounded-full bg-[#D4AF37] shadow-[0_0_6px_rgba(212,175,55,0.8)]" />
               <span className="text-[11px] font-mono text-white/35 uppercase tracking-widest">Lead Results</span>
               {hasSearched && !loading && (
-                <span className="text-[11px] font-mono text-white/20">— {niche} · {city || state} · {country}</span>
+                <span className="text-[11px] font-mono text-white/20">
+                  — {niche} · {city || stateRegion} · {country}
+                </span>
               )}
             </div>
             {leads.length > 0 && (
-              <span className="text-[10px] font-mono text-white/25">{leads.length} result{leads.length !== 1 ? "s" : ""}</span>
+              <span className="text-[10px] font-mono text-white/25">
+                {leads.length} result{leads.length !== 1 ? "s" : ""}
+              </span>
             )}
           </div>
 
@@ -768,7 +832,8 @@ export default function Home() {
               <div className="flex flex-col items-center justify-center min-h-[400px] text-center px-4">
                 <div className="w-14 h-14 rounded-2xl bg-[#D4AF37]/8 border border-[#D4AF37]/15 flex items-center justify-center mb-5">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#D4AF37" strokeWidth="1.5" opacity="0.7">
-                    <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
                   </svg>
                 </div>
                 <h2 className="text-white/70 mb-2" style={{ fontFamily: "var(--font-cormorant), serif", fontSize: "22px", fontWeight: 300 }}>
@@ -801,7 +866,9 @@ export default function Home() {
 
             {loading && (
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                {Array.from({ length: 9 }).map((_, i) => <SkeletonCard key={i} />)}
+                {Array.from({ length: 9 }).map((_, i) => (
+                  <SkeletonCard key={i} />
+                ))}
                 <div className="col-span-full flex items-center justify-center gap-2 py-2">
                   <div className="w-1 h-1 rounded-full bg-[#D4AF37]/50 animate-bounce" style={{ animationDelay: "0ms" }} />
                   <div className="w-1 h-1 rounded-full bg-[#D4AF37]/50 animate-bounce" style={{ animationDelay: "150ms" }} />
@@ -819,7 +886,7 @@ export default function Home() {
                   ))}
                 </div>
                 <p className="text-[10px] font-mono text-white/20 text-center mt-6">
-                  {leads.length} leads — {niche} · {city || state} · {country}
+                  {leads.length} leads — {niche} · {city || stateRegion} · {country}
                 </p>
               </div>
             )}
