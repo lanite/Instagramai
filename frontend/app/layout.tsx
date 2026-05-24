@@ -17,9 +17,9 @@ const dmMono = DM_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "InstaLead AI — Nigerian Business Lead Hunter",
+  title: "InstaLead AI — Instagram Lead Hunter",
   description:
-    "Find Instagram businesses in Nigeria that need a website. AI-powered lead generation for web designers and developers.",
+    "Find Instagram businesses worldwide that need a website. AI-powered lead generation for web designers and developers.",
   icons: {
     icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>",
   },
