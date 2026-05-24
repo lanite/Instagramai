@@ -10,6 +10,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
+from supabase import create_client, Client
 
 load_dotenv()
 
@@ -17,20 +18,33 @@ SERPER_API_KEY = os.getenv("SERPER_API_KEY")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 SCRAPER_API_KEY = os.getenv("SCRAPER_API_KEY")
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 
 if not SERPER_API_KEY:
-    raise RuntimeError("SERPER_API_KEY is not set in environment variables.")
+    raise RuntimeError("SERPER_API_KEY is not set.")
 if not GEMINI_API_KEY:
-    raise RuntimeError("GEMINI_API_KEY is not set in environment variables.")
+    raise RuntimeError("GEMINI_API_KEY is not set.")
 if not GROQ_API_KEY:
-    raise RuntimeError("GROQ_API_KEY is not set in environment variables.")
+    raise RuntimeError("GROQ_API_KEY is not set.")
 if not SCRAPER_API_KEY:
-    raise RuntimeError("SCRAPER_API_KEY is not set in environment variables.")
+    raise RuntimeError("SCRAPER_API_KEY is not set.")
+if not SUPABASE_URL:
+    raise RuntimeError("SUPABASE_URL is not set.")
+if not SUPABASE_SERVICE_KEY:
+    raise RuntimeError("SUPABASE_SERVICE_KEY is not set.")
 
 genai.configure(api_key=GEMINI_API_KEY)
 groq_client = Groq(api_key=GROQ_API_KEY)
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
-app = FastAPI(title="InstaLead AI", version="6.0.0")
+COUNTRY_CODES = {
+    "Nigeria": "ng", "Ghana": "gh", "Kenya": "ke", "South Africa": "za",
+    "United States": "us", "United Kingdom": "gb", "Canada": "ca",
+    "Australia": "au", "India": "in", "UAE": "ae",
+}
+
+app = FastAPI(title="InstaLead AI", version="7.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -61,6 +75,8 @@ INSTAGRAM_HEADERS = {
 class HuntRequest(BaseModel):
     niche: str
     city: str
+    country: str = "Nigeria"
+    state: str = ""
 
 
 class LeadResult(BaseModel):
@@ -72,6 +88,43 @@ class LeadResult(BaseModel):
     email: str
     followers: str
     pitch: str
+    score: int
+
+
+def score_lead(
+    whatsapp_number: str,
+    email: str,
+    followers: str,
+    bio: str,
+    username: str,
+    whatsapp_found: bool,
+) -> int:
+    score = 0
+    if whatsapp_number:
+        score += 30
+    elif whatsapp_found:
+        score += 15
+    if email:
+        score += 20
+    if followers:
+        try:
+            raw = followers.upper().replace(",", "").replace("K", "000").replace("M", "000000")
+            count = int(re.sub(r"[^0-9]", "", raw))
+            if count >= 10000:
+                score += 20
+            elif count >= 1000:
+                score += 12
+            else:
+                score += 5
+        except Exception:
+            score += 5
+    if len(bio) > 60:
+        score += 15
+    elif len(bio) > 20:
+        score += 8
+    if len(username) >= 4 and not re.search(r"\d{4,}", username):
+        score += 15
+    return min(score, 100)
 
 
 def extract_instagram_username(url: str) -> str:
@@ -110,16 +163,13 @@ def extract_whatsapp_number(text: str) -> str:
     for pattern in patterns:
         match = re.search(pattern, text, re.IGNORECASE)
         if match:
-            number = re.sub(r"[\s\-]", "", match.group(1))
-            return number
+            return re.sub(r"[\s\-]", "", match.group(1))
     return ""
 
 
 def extract_email(text: str) -> str:
     match = re.search(r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}", text)
-    if match:
-        return match.group(0)
-    return ""
+    return match.group(0) if match else ""
 
 
 def derive_business_name(username: str, title: str) -> str:
@@ -130,24 +180,17 @@ def derive_business_name(username: str, title: str) -> str:
         cleaned = cleaned.strip()
         if len(cleaned) > 3:
             return cleaned[:60]
-    name = username.replace("_", " ").replace(".", " ")
-    return name.title()
+    return username.replace("_", " ").replace(".", " ").title()
 
 
 def clean_bio(snippet: str) -> str:
     snippet = re.sub(r"\d+ (Followers|Following|Posts).*?-", "", snippet)
     snippet = re.sub(r"http\S+", "", snippet)
-    snippet = snippet.strip()
-    return snippet[:120]
+    return snippet.strip()[:120]
 
 
 def parse_profile_html(html: str, snippet_bio: str) -> dict:
-    result = {
-        "bio": snippet_bio,
-        "whatsapp_number": "",
-        "email": "",
-        "followers": "",
-    }
+    result = {"bio": snippet_bio, "whatsapp_number": "", "email": "", "followers": ""}
     try:
         soup = BeautifulSoup(html, "html.parser")
         full_text = soup.get_text(separator=" ", strip=True)
@@ -168,17 +211,15 @@ def parse_profile_html(html: str, snippet_bio: str) -> dict:
         if email:
             result["email"] = email
 
-        scripts = soup.find_all("script", {"type": "application/ld+json"})
-        for script in scripts:
+        for script in soup.find_all("script", {"type": "application/ld+json"}):
             try:
                 data = json.loads(script.string or "")
                 if isinstance(data, dict):
                     if data.get("description"):
                         result["bio"] = data["description"][:200]
-                    if data.get("interactionStatistic"):
-                        for stat in data["interactionStatistic"]:
-                            if stat.get("interactionType", "").endswith("FollowAction"):
-                                result["followers"] = str(stat.get("userInteractionCount", ""))
+                    for stat in data.get("interactionStatistic", []):
+                        if stat.get("interactionType", "").endswith("FollowAction"):
+                            result["followers"] = str(stat.get("userInteractionCount", ""))
             except Exception:
                 continue
     except Exception:
@@ -199,9 +240,12 @@ async def fetch_profile_with_scraperapi(username: str, client: httpx.AsyncClient
 
 
 async def fetch_profile_direct(username: str, client: httpx.AsyncClient) -> str:
-    url = f"https://www.instagram.com/{username}/"
     try:
-        response = await client.get(url, headers=INSTAGRAM_HEADERS, timeout=10.0)
+        response = await client.get(
+            f"https://www.instagram.com/{username}/",
+            headers=INSTAGRAM_HEADERS,
+            timeout=10.0,
+        )
         if response.status_code == 200:
             return response.text
     except Exception:
@@ -219,23 +263,27 @@ async def fetch_instagram_profile(username: str, client: httpx.AsyncClient) -> d
     return parse_profile_html(html, "")
 
 
-def build_pitch_prompt(business_name: str, username: str, bio: str, niche: str, city: str, followers: str, whatsapp_number: str) -> str:
-    extra_context = ""
+def build_pitch_prompt(
+    business_name: str, username: str, bio: str,
+    niche: str, city: str, country: str,
+    followers: str, whatsapp_number: str,
+) -> str:
+    extra = ""
     if followers:
-        extra_context += f"\n- Followers: {followers}"
+        extra += f"\n- Followers: {followers}"
     if whatsapp_number:
-        extra_context += f"\n- WhatsApp: {whatsapp_number}"
-    return f"""Write a short Instagram DM pitch for a Nigerian web designer reaching out to a small business owner.
+        extra += f"\n- WhatsApp: {whatsapp_number}"
+    return f"""Write a short Instagram DM pitch for a web designer reaching out to a small business owner.
 
 Business details:
 - Business name: {business_name}
 - Instagram: @{username}
 - Bio: {bio}
 - Niche: {niche}
-- City: {city}{extra_context}
+- Location: {city}, {country}{extra}
 
 Requirements:
-- Write in the voice of a friendly, competent Nigerian tech freelancer
+- Write in the voice of a friendly, competent local tech freelancer
 - Acknowledge they currently take orders manually via WhatsApp or DMs
 - Explain that a professional website will save them hours every week
 - Keep it warm and conversational, not salesy or corporate
@@ -244,18 +292,17 @@ Requirements:
 - Return ONLY the pitch text, nothing else"""
 
 
-def generate_pitch_with_gemini(business_name: str, username: str, bio: str, niche: str, city: str, followers: str, whatsapp_number: str) -> str:
-    prompt = build_pitch_prompt(business_name, username, bio, niche, city, followers, whatsapp_number)
-    gemini_model = genai.GenerativeModel(
+def generate_pitch_with_gemini(business_name, username, bio, niche, city, country, followers, whatsapp_number):
+    prompt = build_pitch_prompt(business_name, username, bio, niche, city, country, followers, whatsapp_number)
+    model = genai.GenerativeModel(
         model_name="gemini-2.0-flash",
         generation_config=genai.GenerationConfig(temperature=0.8, max_output_tokens=200),
     )
-    response = gemini_model.generate_content(prompt)
-    return response.text.strip()
+    return model.generate_content(prompt).text.strip()
 
 
-def generate_pitch_with_groq(business_name: str, username: str, bio: str, niche: str, city: str, followers: str, whatsapp_number: str) -> str:
-    prompt = build_pitch_prompt(business_name, username, bio, niche, city, followers, whatsapp_number)
+def generate_pitch_with_groq(business_name, username, bio, niche, city, country, followers, whatsapp_number):
+    prompt = build_pitch_prompt(business_name, username, bio, niche, city, country, followers, whatsapp_number)
     response = groq_client.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[{"role": "user", "content": prompt}],
@@ -265,35 +312,34 @@ def generate_pitch_with_groq(business_name: str, username: str, bio: str, niche:
     return response.choices[0].message.content.strip()
 
 
-def generate_pitch(business_name: str, username: str, bio: str, niche: str, city: str, followers: str, whatsapp_number: str) -> str:
+def generate_pitch(business_name, username, bio, niche, city, country, followers, whatsapp_number):
     try:
-        return generate_pitch_with_gemini(business_name, username, bio, niche, city, followers, whatsapp_number)
-    except Exception as gemini_error:
-        gemini_msg = str(gemini_error).lower()
-        if any(code in gemini_msg for code in ["429", "404", "quota", "rate", "limit", "not found"]):
+        return generate_pitch_with_gemini(business_name, username, bio, niche, city, country, followers, whatsapp_number)
+    except Exception as e:
+        msg = str(e).lower()
+        if any(c in msg for c in ["429", "404", "quota", "rate", "limit", "not found"]):
             try:
-                return generate_pitch_with_groq(business_name, username, bio, niche, city, followers, whatsapp_number)
+                return generate_pitch_with_groq(business_name, username, bio, niche, city, country, followers, whatsapp_number)
             except Exception:
                 pass
         else:
             try:
-                return generate_pitch_with_groq(business_name, username, bio, niche, city, followers, whatsapp_number)
+                return generate_pitch_with_groq(business_name, username, bio, niche, city, country, followers, whatsapp_number)
             except Exception:
                 pass
     return (
         f"Hi {business_name}! Love what you're doing on Instagram. "
         f"I noticed you're managing orders manually via DMs/WhatsApp — "
-        f"I can build you a clean website that automates your orders and saves you hours every week. "
-        f"No more copy-pasting customer details. "
+        f"a professional website can automate your orders and save you hours every week. "
         f"Want me to show you a free mockup of what it could look like?"
     )
 
 
-async def run_serper_query(query: str, client: httpx.AsyncClient) -> list[dict]:
+async def run_serper_query(query: str, gl: str, client: httpx.AsyncClient) -> list[dict]:
     try:
         response = await client.post(
             "https://google.serper.dev/search",
-            json={"q": query, "num": 10, "gl": "ng"},
+            json={"q": query, "num": 10, "gl": gl},
             headers={"X-API-KEY": SERPER_API_KEY, "Content-Type": "application/json"},
             timeout=15.0,
         )
@@ -305,36 +351,38 @@ async def run_serper_query(query: str, client: httpx.AsyncClient) -> list[dict]:
 
 @app.get("/")
 async def health_check():
-    return {"status": "InstaLead AI is running", "version": "6.0.0"}
+    return {"status": "InstaLead AI is running", "version": "7.0.0"}
 
 
 @app.post("/api/hunt", response_model=list[LeadResult])
 async def hunt_leads(req: HuntRequest):
     if not req.niche.strip():
         raise HTTPException(status_code=422, detail="Niche cannot be empty.")
-    if not req.city.strip():
-        raise HTTPException(status_code=422, detail="City cannot be empty.")
 
     niche = req.niche.strip()
     city = req.city.strip()
+    country = req.country.strip()
+    state = req.state.strip()
+    gl = COUNTRY_CODES.get(country, "us")
+
+    location = city or state or country
 
     queries = [
-        f'site:instagram.com "DM to order" "{city}" {niche}',
-        f'site:instagram.com "WhatsApp to order" "{city}" {niche}',
-        f'site:instagram.com "send a DM" "{city}" {niche}',
-        f'site:instagram.com "DM us" "{city}" {niche}',
-        f'site:instagram.com "order via WhatsApp" "{city}" {niche}',
-        f'site:instagram.com "call or WhatsApp" "{city}" {niche}',
+        f'site:instagram.com "DM to order" "{location}" {niche}',
+        f'site:instagram.com "WhatsApp to order" "{location}" {niche}',
+        f'site:instagram.com "send a DM" "{location}" {niche}',
+        f'site:instagram.com "DM us" "{location}" {niche}',
+        f'site:instagram.com "order via WhatsApp" "{location}" {niche}',
+        f'site:instagram.com "call or WhatsApp" "{location}" {niche}',
     ]
 
     async with httpx.AsyncClient(timeout=20.0) as client:
-        serper_tasks = [run_serper_query(q, client) for q in queries]
-        serper_results = await asyncio.gather(*serper_tasks)
+        serper_results = await asyncio.gather(*[run_serper_query(q, gl, client) for q in queries])
 
-        seen_usernames = set()
+        seen_usernames: set = set()
         unique_results = []
-        for result_batch in serper_results:
-            for result in result_batch:
+        for batch in serper_results:
+            for result in batch:
                 url = result.get("link", "")
                 if "instagram.com" not in url:
                     continue
@@ -349,12 +397,10 @@ async def hunt_leads(req: HuntRequest):
 
         unique_results = unique_results[:50]
 
-        profile_tasks = []
-        for result in unique_results:
-            username = extract_instagram_username(result.get("link", ""))
-            profile_tasks.append(fetch_instagram_profile(username, client))
-
-        profile_data = await asyncio.gather(*profile_tasks)
+        profile_data = await asyncio.gather(*[
+            fetch_instagram_profile(extract_instagram_username(r.get("link", "")), client)
+            for r in unique_results
+        ])
 
         leads = []
         for result, profile in zip(unique_results, profile_data):
@@ -364,16 +410,14 @@ async def hunt_leads(req: HuntRequest):
 
             username = extract_instagram_username(url)
             business_name = derive_business_name(username, title)
-
-            bio = profile.get("bio") or clean_bio(snippet)
-            bio = bio[:200]
-
+            bio = (profile.get("bio") or clean_bio(snippet))[:200]
             whatsapp_number = profile.get("whatsapp_number") or extract_whatsapp_number(snippet)
             email = profile.get("email") or extract_email(snippet)
             followers = profile.get("followers", "")
             whatsapp_found = bool(whatsapp_number) or detect_whatsapp(snippet + " " + title)
 
-            pitch = generate_pitch(business_name, username, bio, niche, city, followers, whatsapp_number)
+            lead_score = score_lead(whatsapp_number, email, followers, bio, username, whatsapp_found)
+            pitch = generate_pitch(business_name, username, bio, niche, city or location, country, followers, whatsapp_number)
 
             leads.append(LeadResult(
                 username=username,
@@ -384,6 +428,8 @@ async def hunt_leads(req: HuntRequest):
                 email=email,
                 followers=followers,
                 pitch=pitch,
+                score=lead_score,
             ))
 
+        leads.sort(key=lambda x: x.score, reverse=True)
         return leads
